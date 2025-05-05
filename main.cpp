@@ -1,6 +1,16 @@
+#include <GLFW/glfw3.h>
+
+#ifdef _WIN32
 #include <GL/glew.h>
 #include <GL/wglew.h>
-#include <GLFW/glfw3.h>
+#endif
+
+#ifdef __apple__
+#include <OpenGL/gl3.h>
+#include <OpenGL/OpenGL.h>
+#endif
+
+
 #include <cstddef>
 #include <stdio.h>
 #include <cmath>
@@ -155,10 +165,13 @@ bool Initialise()
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glEnable(GL_CULL_FACE);
+    
 
     initVBO();
     initIBO();
     initVAO();
+
+    glDisable(GL_CULL_FACE);
 
     return true;
 }
