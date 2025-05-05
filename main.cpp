@@ -1,5 +1,3 @@
-#include <GLFW/glfw3.h>
-
 #ifdef _WIN32
 #include <GL/glew.h>
 #include <GL/wglew.h>
@@ -10,6 +8,7 @@
 #include <OpenGL/OpenGL.h>
 #endif
 
+#include <GLFW/glfw3.h>
 
 #include <cstddef>
 #include <stdio.h>
