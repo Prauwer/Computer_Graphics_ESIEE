@@ -59,14 +59,14 @@ void layout(uint32_t basicProgram) {
 
     // Étape f. Spécification des attributs de couleur
     GLint colorAttrib = glGetAttribLocation(basicProgram, "a_color");
-    glVertexAttribPointer(colorAttrib, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(colorAttrib);
+        glVertexAttribPointer(colorAttrib, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(colorAttrib);
 
     // Étape f. Spécification des attributs de texture
     GLint uvLoc = glGetAttribLocation(basicProgram, "a_uv");
-    glVertexAttribPointer(uvLoc, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(uvLoc);
-}
+        glVertexAttribPointer(uvLoc, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)(6 * sizeof(float)));
+        glEnableVertexAttribArray(uvLoc);
+    }
 
 void initVBO(){
     glGenBuffers(1, &VBO);
@@ -205,7 +205,6 @@ void Render()
     transformMatrixes(basicProgram);
 
     // Application de la texture
-    glUseProgram(g_BasicShader.GetProgram());
     glUniform1i(glGetUniformLocation(g_BasicShader.GetProgram(), "uTexture"), 0);
 
     glActiveTexture(GL_TEXTURE0);
@@ -226,9 +225,6 @@ void Render()
 
 int main(void)
 {
-    /* Initialize the library */
-    if (!glfwInit())
-        return -1;
 
     /* Create a windowed mode window and its OpenGL context */
     g_window = glfwCreateWindow(640, 480, "Dragon", NULL, NULL);
@@ -244,11 +240,11 @@ int main(void)
     glfwSetWindowSizeCallback(g_window, window_size_callback);
 
     #ifdef _WIN32
-    glewInit();
+        glewInit();
     #endif
 
     #ifdef __APPLE__
-    glfwInit();
+        glfwInit();
     #endif
 
 
