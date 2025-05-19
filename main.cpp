@@ -228,6 +228,11 @@ int main(void)
 
     /* Create a windowed mode window and its OpenGL context */
     g_window = glfwCreateWindow(640, 480, "Dragon", NULL, NULL);
+    
+    if (!glfwInit()){
+        return -1;
+    }
+
     if (!g_window)
     {
         glfwTerminate();
@@ -242,11 +247,6 @@ int main(void)
     #ifdef _WIN32
         glewInit();
     #endif
-
-    #ifdef __APPLE__
-        glfwInit();
-    #endif
-
 
     Initialise();
 
