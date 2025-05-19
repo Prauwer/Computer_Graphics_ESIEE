@@ -1,8 +1,16 @@
+#define GL_SILENCE_DEPRECATION
 
-//#include "stdafx.h"
+
 #include "GLShader.h"
-//#define GLEW_STATIC
-#include "GL/glew.h"
+#ifdef _WIN32
+#include <GL/glew.h>
+#include <GL/wglew.h>
+#endif
+
+#ifdef __APPLE__
+#include <OpenGL/gl3.h>
+#include <OpenGL/OpenGL.h>
+#endif
 
 #include <fstream>
 #include <iostream>

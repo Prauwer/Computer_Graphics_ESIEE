@@ -1,4 +1,5 @@
-precision mediump float;
+#version 120
+// precision mediump float;
 //varying vec3 v_color;
 varying vec2 v_uv;
 uniform sampler2D uTexture;  // dragon.png

@@ -1,9 +1,11 @@
+#define GL_SILENCE_DEPRECATION
+
 #ifdef _WIN32
 #include <GL/glew.h>
 #include <GL/wglew.h>
 #endif
 
-#ifdef __apple__
+#ifdef __APPLE__
 #include <OpenGL/gl3.h>
 #include <OpenGL/OpenGL.h>
 #endif
@@ -241,7 +243,14 @@ int main(void)
 
     glfwSetWindowSizeCallback(g_window, window_size_callback);
 
+    #ifdef _WIN32
     glewInit();
+    #endif
+
+    #ifdef __APPLE__
+    glfwInit();
+    #endif
+
 
     Initialise();
 
