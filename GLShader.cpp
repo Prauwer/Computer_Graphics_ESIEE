@@ -147,7 +147,7 @@ bool GLShader::Create()
 			glGetProgramInfoLog(m_Program, infoLen, NULL, infoLog);
 			std::cout << "Erreur de lien du programme: " << infoLog << std::endl;
 
-			delete(infoLog);
+			delete[]infoLog;
 		}
 
 		glDeleteProgram(m_Program);

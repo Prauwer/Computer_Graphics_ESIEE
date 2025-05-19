@@ -36,7 +36,7 @@ struct Vertex {
 
 void window_size_callback(GLFWwindow* window, int width, int height)
 {
-    glfwSetWindowSize(window, 640, 480);
+    // glfwSetWindowSize(window, 640, 480);
 }
 
 GLuint loadTexture(const char* path) {
@@ -212,6 +212,7 @@ void Render()
     
     // Étape d. Activation du VAO
     glBindVertexArray(VAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
 
     // Étape g. Dessin du dragon
     int indexCount = sizeof(DragonIndices) / sizeof(DragonIndices[0]);
@@ -226,30 +227,33 @@ void Render()
 int main(void)
 {
 
-    /* Create a windowed mode window and its OpenGL context */
-    g_window = glfwCreateWindow(640, 480, "Dragon", NULL, NULL);
-    
     if (!glfwInit()){
         return -1;
     }
-
+    
+    
+    
+    /* Create a windowed mode window and its OpenGL context */
+    g_window = glfwCreateWindow(640, 480, "Dragon", NULL, NULL);
+    
+    
     if (!g_window)
     {
         glfwTerminate();
         return -1;
     }
-
+    
     /* Make the window's context current */
     glfwMakeContextCurrent(g_window);
-
+    
     glfwSetWindowSizeCallback(g_window, window_size_callback);
-
+    
     #ifdef _WIN32
-        glewInit();
+    glewInit();
     #endif
-
+    
     Initialise();
-
+    
 
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(g_window))
