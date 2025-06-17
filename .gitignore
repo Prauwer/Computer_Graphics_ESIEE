@@ -1,34 +1,41 @@
-# Prerequisites
-*.d
+# CMake build files
+build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
 
-# Compiled Object files
-*.slo
-*.lo
+# Executables and Libraries
+*.exe
+*.out
+*.app
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+ESIEE_Computer_Graphics
+
+# Object files and intermediate files
 *.o
 *.obj
+*.lo
+*.slo
+*.d
 
 # Precompiled Headers
 *.gch
 *.pch
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
 
-# Fortran module files
-*.mod
-*.smod
+# IDE specific
+.vscode/
+.idea/
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
+# User added
 projet
+*.pdf
