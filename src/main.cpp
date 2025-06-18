@@ -90,22 +90,17 @@ GLuint loadTexture(const char* path) {
     return tex;
 }
 
-void layout(uint32_t basicProgram) {
-    // Étape e. Spécification des attributs de vertex
-    GLint positionAttrib = glGetAttribLocation(basicProgram, "a_position");
-    glVertexAttribPointer(positionAttrib, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)0);
-    glEnableVertexAttribArray(positionAttrib);
-
-    // Étape f. Spécification des attributs de couleur
-    GLint colorAttrib = glGetAttribLocation(basicProgram, "a_color");
-        glVertexAttribPointer(colorAttrib, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(colorAttrib);
-
-    // Étape f. Spécification des attributs de texture
-    GLint uvLoc = glGetAttribLocation(basicProgram, "a_uv");
-        glVertexAttribPointer(uvLoc, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)(6 * sizeof(float)));
-        glEnableVertexAttribArray(uvLoc);
-    }
+void layout() {
+    // Position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)offsetof(Vertex, position));
+    glEnableVertexAttribArray(0);
+    // Normal attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(1);
+    // UV attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)offsetof(Vertex, uv));
+    glEnableVertexAttribArray(2);
+}
 
 
 
@@ -214,7 +209,7 @@ Model loadObjModel(const std::string& filepath) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-    layout(g_BasicShader.GetProgram());
+    layout();
 
     glBindVertexArray(0);
 
@@ -296,13 +291,13 @@ void Render()
     // Matrice Projection (perspective)
     mat4 projectionMatrix = mat4::perspective(45.0f * 3.14159f / 180.0f, // FOV en radians
                                               aspectRatio,
-                                              0.1f,  // Near plane
+                                              0.1f,    // Near plane
                                               100.0f); // Far plane
 
-    // Récupérer les localisations des uniformes MVP
-    GLint modelLoc = glGetUniformLocation(basicProgram, "uModelMatrix");
-    GLint viewLoc = glGetUniformLocation(basicProgram, "uViewMatrix");
-    GLint projectionLoc = glGetUniformLocation(basicProgram, "uProjectionMatrix");
+    // Récupérer les localisations des uniformes
+    GLint modelLoc = glGetUniformLocation(basicProgram, "u_model");
+    GLint viewLoc = glGetUniformLocation(basicProgram, "u_view");
+    GLint projectionLoc = glGetUniformLocation(basicProgram, "u_projection");
 
     // Envoyer les matrices au shader
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, modelMatrix.getPtr());
@@ -310,7 +305,7 @@ void Render()
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, projectionMatrix.getPtr());
 
     // Application de la texture
-    glUniform1i(glGetUniformLocation(g_BasicShader.GetProgram(), "uTexture"), 0);
+    glUniform1i(glGetUniformLocation(g_BasicShader.GetProgram(), "u_texture"), 0);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, g_mainTex);

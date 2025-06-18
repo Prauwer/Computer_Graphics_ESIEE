@@ -1,12 +1,14 @@
-#version 120
+#version 330 core
 // precision mediump float;
-//varying vec3 v_color;
-varying vec2 v_uv;
-uniform sampler2D uTexture;  // dragon.png
 
-void main(void) {
-    //vec4 texColor = texture2D(uTexture, v_uv);
-    //gl_FragColor = vec4(v_color, 1.0) * texColor;
-    gl_FragColor = texture2D(uTexture, v_uv);
+in vec2 v_uv;
+in vec3 v_color;
 
+out vec4 FragColor;
+
+uniform sampler2D u_texture;
+
+void main()
+{
+    FragColor = texture(u_texture, v_uv);
 }
