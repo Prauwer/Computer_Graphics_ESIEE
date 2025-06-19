@@ -219,8 +219,8 @@ Model loadObjModel(const std::string& filepath) {
 
 bool Initialise()
 {
-    g_BasicShader.LoadVertexShader("basic.vs");
-    g_BasicShader.LoadFragmentShader("basic.fs");
+    g_BasicShader.LoadVertexShader("shaders/basic.vs");
+    g_BasicShader.LoadFragmentShader("shaders/basic.fs");
     g_BasicShader.Create();
     
     #ifdef WIN32
