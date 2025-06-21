@@ -91,13 +91,13 @@ GLuint loadTexture(const char* path) {
 }
 
 void layout() {
-    // Position attribute
+    // Position (3 floats)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)offsetof(Vertex, position));
     glEnableVertexAttribArray(0);
-    // Normal attribute
+    // Normale (3 floats)
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)offsetof(Vertex, normal));
     glEnableVertexAttribArray(1);
-    // UV attribute
+    // UV (2 floats)
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)offsetof(Vertex, uv));
     glEnableVertexAttribArray(2);
 }
@@ -289,10 +289,11 @@ void Render()
     );
 
     // Matrice Projection (perspective)
-    mat4 projectionMatrix = mat4::perspective(45.0f * 3.14159f / 180.0f, // FOV en radians
-                                              aspectRatio,
-                                              0.1f,    // Near plane
-                                              100.0f); // Far plane
+    mat4 projectionMatrix = mat4::perspective(
+        45.0f * 3.14159f / 180.0f, // FOV en radians
+        aspectRatio,
+        0.01f,    // Near plane
+        100.0f); // Far plane
 
     // Récupérer les localisations des uniformes
     GLint modelLoc = glGetUniformLocation(basicProgram, "u_model");
@@ -312,7 +313,7 @@ void Render()
     
     // Étape e. Activation du VAO du modèle
     glBindVertexArray(g_mainModel.vao);
-
+    
     // Étape f. Dessin du modèle
     glDrawElements(GL_TRIANGLES, g_mainModel.indexCount, GL_UNSIGNED_INT, 0);
 
@@ -335,9 +336,9 @@ int main(void)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#ifdef __APPLE__
+    #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // Required on Mac
-#endif
+    #endif
 
     /* Create a windowed mode window and its OpenGL context */
     g_window = glfwCreateWindow(640, 480, "Dragon", NULL, NULL);
