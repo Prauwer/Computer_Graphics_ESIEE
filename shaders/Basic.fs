@@ -1,13 +1,12 @@
 #version 330 core
+in  vec3 v_normal;
+out vec4 fragColor;
 
-
-in vec2 v_uv;
-
-out vec4 FragColor;
-
-uniform sampler2D u_texture;
+// <<< Ajout >>>
+uniform vec3 u_color;
 
 void main()
 {
-    FragColor = texture(u_texture, v_uv);
+    // pour l’instant on ignore l’éclairage et on renvoie juste la couleur
+    fragColor = vec4(u_color, 1.0);
 }
