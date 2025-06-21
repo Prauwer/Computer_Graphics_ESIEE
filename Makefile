@@ -1,74 +1,58 @@
-# Makefile for ESIEE_Computer_Graphics
+# Makefile pour le projet ESIEE_Computer_Graphics
+# Gère la compilation pour macOS (via Homebrew) et Windows (via MinGW).
 
-# Compiler and flags
+# --- Configuration du Compilateur ---
 CXX = g++
 CXXFLAGS = -Wall -std=c++11
-LDFLAGS =
-LIBS =
-INCLUDES = -Ilibs
-DEFINES =
 
-# Source files and object files
-SRCDIR = .
-SOURCES = $(SRCDIR)/main.cpp $(SRCDIR)/GLShader.cpp
-OBJECTS = $(SOURCES:.cpp=.o)
+# --- Configuration des Fichiers ---
+SRCS = main.cpp GLShader.cpp
+OBJS = $(SRCS:.cpp=.o)
 EXECUTABLE = ESIEE_Computer_Graphics
 
-# Default to macOS if OS detection fails or is not specific
+# --- Variables de Compilation (spécifiques à l'OS) ---
+LDFLAGS = # Flags pour l'éditeur de liens
+LIBS =    # Bibliothèques à lier
+INCLUDES = -Ilibs # Chemins d'inclusion (pour tiny_obj_loader.h, etc.)
+DEFINES =  # Macros de préprocesseur
+
+# --- Détection de l'OS ---
 OS_NAME = $(shell uname -s)
 
+# Si l'OS est macOS (Darwin)
 ifeq ($(OS_NAME),Darwin)
-    # macOS specific settings
     DEFINES += -DGL_SILENCE_DEPRECATION
-    # Try local GLFW first, then Homebrew
-    LOCAL_GLFW_INCLUDE = ./glfw-3.4.bin.MACOS/include
-    LOCAL_GLFW_LIB = ./glfw-3.4.bin.MACOS/lib-macos # Adjust if your lib folder is different
-    
-    ifeq ("$(wildcard $(LOCAL_GLFW_INCLUDE)/GLFW/glfw3.h)","")
-        INCLUDES += -I/opt/homebrew/include
-        LDFLAGS += -L/opt/homebrew/lib
-    else
-        INCLUDES += -I$(LOCAL_GLFW_INCLUDE)
-        LDFLAGS += -L$(LOCAL_GLFW_LIB)
-    endif
-    
+    INCLUDES += -I/opt/homebrew/include
+    LDFLAGS += -L/opt/homebrew/lib
     LIBS += -lglfw
     LIBS += -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
-else ifeq ($(findstring MINGW,$(OS_NAME)),MINGW) # For MinGW/MSYS2 on Windows
-    # Windows specific settings (using MinGW)
+
+# Si l'OS est Windows (MinGW)
+else ifeq ($(findstring MINGW,$(OS_NAME)),MINGW)
     DEFINES += -D_WIN32
     INCLUDES += -Ilibs/glfw/include -Ilibs/glew/include
-    LDFLAGS += -Llibs/glfw/lib-mingw-w64 -Llibs/glew/lib/Release/x64 # Adjust paths as per your GLFW/GLEW setup
+    LDFLAGS += -Llibs/glfw/lib-mingw-w64 -Llibs/glew/lib/Release/x64
     LIBS += -lglew32 -lglfw3 -lopengl32 -lgdi32 -luser32 -lkernel32
-    EXECUTABLE := $(EXECUTABLE).exe # Add .exe extension for Windows
-else ifeq ($(findstring CYGWIN,$(OS_NAME)),CYGWIN) # For Cygwin on Windows
-    # Windows specific settings (using Cygwin)
-    DEFINES += -D_WIN32
-    INCLUDES += -Ilibs/glfw/include -Ilibs/glew/include 
-    LDFLAGS += -Llibs/glfw/lib-mingw-w64 -Llibs/glew/lib/Release/x64 # Adjust paths
-    LIBS += -lglew32 -lglfw3 -lopengl32 -lgdi32 -luser32 -lkernel32
-    EXECUTABLE := $(EXECUTABLE).exe # Add .exe extension for Windows
-else
-    # Fallback for Linux-like systems (you might need to adjust GLFW/GLEW paths)
-    # DEFINES += -DGL_SILENCE_DEPRECATION # Or other Linux specific defines
-    INCLUDES += -I/usr/include # Example
-    LDFLAGS += -L/usr/lib    # Example
-    LIBS += -lglfw -lGLEW -lGL # Example for Linux
+    EXECUTABLE := $(EXECUTABLE).exe
+
 endif
 
-# Final flags
-CXXFLAGS += $(DEFINES) $(INCLUDES)
+# --- Règles de Compilation ---
 
-# Rules
+# Cible par défaut
 all: $(EXECUTABLE)
 
-$(EXECUTABLE): $(OBJECTS)
-	$(CXX) $(OBJECTS) -o $@ $(LDFLAGS) $(LIBS)
+# Règle pour lier l'exécutable final
+$(EXECUTABLE): $(OBJS)
+	$(CXX) $(OBJS) -o $@ $(LDFLAGS) $(LIBS)
 
-$(SRCDIR)/%.o: $(SRCDIR)/%.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+# Règle pour compiler les fichiers source en fichiers objet
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(DEFINES) $(INCLUDES) -c $< -o $@
 
+# Règle pour nettoyer les fichiers générés
 clean:
-	rm -f $(OBJECTS) $(EXECUTABLE)
+	rm -f $(OBJS) $(EXECUTABLE)
 
+# Cibles non-associées à des fichiers
 .PHONY: all clean

@@ -1,8 +1,7 @@
 #version 330 core
-// precision mediump float;
+
 
 in vec2 v_uv;
-in vec3 v_color;
 
 out vec4 FragColor;
 

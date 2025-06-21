@@ -31,7 +31,21 @@ GLShader g_BasicShader;
 GLFWwindow* g_window;
 GLuint g_mainTex = 0; // Global texture object
 
-// A simple struct to hold our loaded model's data
+// Variables pour la caméra orbitale
+float g_cameraDistance = 5.0f;
+float g_cameraYaw = 0.0f;      // Angle horizontal autour de l'axe Y
+float g_cameraPitch = 0.0f;    // Angle vertical par rapport au plan XZ
+
+bool g_isDragging = false;
+double g_lastMouseX = 0.0;
+double g_lastMouseY = 0.0;
+
+// Callback functions for GLFW
+void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+
+// Structure to hold 3D model data (VAO, VBO, etc.)
 struct Model {
     GLuint vao = 0;
     GLuint vbo = 0;
@@ -42,7 +56,7 @@ struct Model {
 Model g_mainModel; // Global model object
 
 
-// Vertex du Dragon
+// Structure pour un sommet 3D, incluant position, normale et coordonnées de texture (UV).
 struct Vertex {
     float position[3]; // x, y, z
     float normal[3]; // nx, ny, ny
@@ -53,7 +67,8 @@ struct Vertex {
     }
 };
 
-// Hash function for Vertex, enabling its use in std::unordered_map
+// Spécialisation du hasher pour la structure Vertex, nécessaire pour l'utiliser dans un std::unordered_map.
+// Cela permet d'optimiser le chargement de l'OBJ en évitant les sommets dupliqués.
 namespace std {
     template<> struct hash<Vertex> {
         size_t operator()(Vertex const& vertex) const {
@@ -102,56 +117,6 @@ void layout() {
     glEnableVertexAttribArray(2);
 }
 
-
-
-// // Removed old transformMatrixes function
-
-//     // Angle de rotation en radians (45°)
-//     const float theta = 0.0f * 3.14159f / 180.0f;
-
-//     // Coefficients pour le scale
-//     const float scaleX = 0.14f, scaleY = 0.14f, scaleZ = 0.14f;
-
-//     // Valeurs de translation
-//     const float tx = 0.0f, ty = -0.6f, tz = 0.0f;
-
-
-//     // Matrice de scale en 4x4 (stockée en ordre colonne-major)
-//     float scaleMatrix[16] = {
-//         scaleX, 0.0f,   0.0f,   0.0f,
-//         0.0f,   scaleY, 0.0f,   0.0f,
-//         0.0f,   0.0f,   scaleZ, 0.0f,
-//         0.0f,   0.0f,   0.0f,   1.0f
-//     };
-
-//     // Matrice de rotation autour de l'axe Z en 4x4 (colonne-major)
-//     float rotationMatrix[16] = {
-//         cos(theta),  sin(theta), 0.0f, 0.0f,
-//         -sin(theta),  cos(theta), 0.0f, 0.0f,
-//         0.0f,        0.0f,       1.0f, 0.0f,
-//         0.0f,        0.0f,       0.0f, 1.0f
-//     };
-
-//     // Matrice de translation en 4x4 (colonne-major)
-//     float translationMatrix[16] = {
-//         1.0f, 0.0f, 0.0f, 0.0f,
-//         0.0f, 1.0f, 0.0f, 0.0f,
-//         0.0f, 0.0f, 1.0f, 0.0f,
-//         tx,   ty,   tz,   1.0f
-//     };
-
-    
-    
-//     // Récupérer les localisations des variables uniformes dans le shader
-//     GLuint scaleLoc = glGetUniformLocation(basicProgram, "uScale");
-//     GLuint rotationLoc = glGetUniformLocation(basicProgram, "uRotation");
-//     GLuint translationLoc = glGetUniformLocation(basicProgram, "uTranslation");
-
-//     // Envoi des matrices aux uniformes du shader
-//     glUniformMatrix4fv(scaleLoc, 1, GL_FALSE, scaleMatrix);
-//     glUniformMatrix4fv(rotationLoc, 1, GL_FALSE, rotationMatrix);
-//     glUniformMatrix4fv(translationLoc, 1, GL_FALSE, translationMatrix);
-// }
 
 // New function to load an OBJ file and create a Model
 Model loadObjModel(const std::string& filepath) {
@@ -236,6 +201,8 @@ bool Initialise()
         return false;
     }
 
+    
+
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glEnable(GL_CULL_FACE);
@@ -273,29 +240,37 @@ void Render()
     glfwGetFramebufferSize(g_window, &width, &height);
     float aspectRatio = (height > 0) ? ((float)width / height) : 1.0f;
 
-    // Matrice Modèle (transformations de l'objet)
+    // 1. Matrice Modèle : position, rotation et échelle de l'objet dans le monde.
     // Simplification pour le débogage : on utilise une matrice identité.
     // L'objet sera à l'origine, sans rotation ni scale.
         // On réintroduit une matrice de transformation pour ajuster la taille.
     // N'hésitez pas à changer la valeur de 'scaleFactor'.
-    float scaleFactor = 1.0f; // Commencez avec 1.0 et ajustez si besoin
-    mat4 modelMatrix = mat4::scale(scaleFactor, scaleFactor, scaleFactor);
+    float scaleFactor = 1.0f; // Taille normale
+    float rotationXAngle = 20.0f * 3.1415926535f / 180.0f; // 20 degrés en radians
 
-    // Matrice Vue (position et orientation de la caméra)
+    mat4 scaleMatrix = mat4::scale(scaleFactor, scaleFactor, scaleFactor);
+    mat4 rotationXMatrix = mat4::rotateX(rotationXAngle);
+    mat4 modelMatrix = rotationXMatrix * scaleMatrix; // Appliquer la rotation puis la mise à l'échelle
+
+    // 2. Matrice Vue : positionne et oriente la caméra.
+    // Calcul de la position de la caméra en coordonnées cartésiennes à partir des coordonnées sphériques
+    float camX = g_cameraDistance * sin(g_cameraYaw) * cos(g_cameraPitch);
+    float camY = g_cameraDistance * sin(g_cameraPitch);
+    float camZ = g_cameraDistance * cos(g_cameraYaw) * cos(g_cameraPitch);
+
     mat4 viewMatrix = mat4::lookAt(
-        vec3(0.0f, 0.0f, 5.0f),    // Position de la caméra (reculée sur Z)
+        vec3(camX, camY, camZ),    // Position de la caméra calculée
         vec3(0.0f, 0.0f, 0.0f),    // Point regardé (l'origine)
         vec3(0.0f, 1.0f, 0.0f)     // Vecteur "haut"
     );
 
-    // Matrice Projection (perspective)
-    mat4 projectionMatrix = mat4::perspective(
-        45.0f * 3.14159f / 180.0f, // FOV en radians
-        aspectRatio,
-        0.01f,    // Near plane
-        100.0f); // Far plane
+    // 3. Matrice Projection : définit le type de projection (perspective) et le champ de vision.
+    mat4 projectionMatrix = mat4::perspective(45.0f * 3.14159f / 180.0f, // FOV en radians
+                                              aspectRatio,
+                                              0.1f,    // Near plane
+                                              100.0f); // Far plane
 
-    // Récupérer les localisations des uniformes
+    // Envoyer les matrices (Modèle, Vue, Projection) au shader
     GLint modelLoc = glGetUniformLocation(basicProgram, "u_model");
     GLint viewLoc = glGetUniformLocation(basicProgram, "u_view");
     GLint projectionLoc = glGetUniformLocation(basicProgram, "u_projection");
@@ -305,21 +280,59 @@ void Render()
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, viewMatrix.getPtr());
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, projectionMatrix.getPtr());
 
-    // Application de la texture
+    // Lier la texture à l'unité de texture 0
     glUniform1i(glGetUniformLocation(g_BasicShader.GetProgram(), "u_texture"), 0);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, g_mainTex);
     
-    // Étape e. Activation du VAO du modèle
+    // Activer le VAO du modèle pour le dessin
     glBindVertexArray(g_mainModel.vao);
-    
-    // Étape f. Dessin du modèle
+
+    // Dessiner le modèle en utilisant les indices
     glDrawElements(GL_TRIANGLES, g_mainModel.indexCount, GL_UNSIGNED_INT, 0);
 
-    // Étape g. Désactivation du VAO
+    // Désactiver le VAO pour éviter les modifications accidentelles
     glBindVertexArray(0);
 }
+
+// --- Définitions des Callbacks GLFW --- 
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        if (action == GLFW_PRESS) {
+            g_isDragging = true;
+            glfwGetCursorPos(window, &g_lastMouseX, &g_lastMouseY);
+        } else if (action == GLFW_RELEASE) {
+            g_isDragging = false;
+        }
+    }
+}
+
+void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (g_isDragging) {
+        float dx = (float)(xpos - g_lastMouseX);
+        float dy = (float)(ypos - g_lastMouseY);
+
+        g_cameraYaw -= dx * 0.005f; // Sensibilité de la souris pour le lacet
+        g_cameraPitch -= dy * 0.005f; // Sensibilité de la souris pour le tangage
+
+        // Limiter le tangage pour éviter de basculer la caméra
+        if (g_cameraPitch > 1.55f) g_cameraPitch = 1.55f; // Un peu moins de PI/2 (environ 88 degrés)
+        if (g_cameraPitch < -1.55f) g_cameraPitch = -1.55f; // Un peu plus de -PI/2
+
+        g_lastMouseX = xpos;
+        g_lastMouseY = ypos;
+    }
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    g_cameraDistance -= (float)yoffset * 0.5f; // Sensibilité du zoom
+    if (g_cameraDistance < 0.5f) g_cameraDistance = 0.5f; // Distance minimale
+    if (g_cameraDistance > 20.0f) g_cameraDistance = 20.0f; // Distance maximale
+}
+
+// --- Fin des Callbacks GLFW ---
 
 
 
@@ -354,7 +367,10 @@ int main(void)
     glfwMakeContextCurrent(g_window);
     
     glfwSetWindowSizeCallback(g_window, window_size_callback);
-    
+    glfwSetMouseButtonCallback(g_window, mouse_button_callback);
+    glfwSetCursorPosCallback(g_window, cursor_position_callback);
+    glfwSetScrollCallback(g_window, scroll_callback);
+
     #ifdef _WIN32
     glewInit();
     #endif
@@ -379,5 +395,3 @@ int main(void)
     glfwTerminate();
     return 0;
 }
-
-// g++ main.cpp GLShader.cpp -o toto -lglfw3 -lglew32 -lopengl32 && ./toto
