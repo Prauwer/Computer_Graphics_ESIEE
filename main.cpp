@@ -109,7 +109,8 @@ GLuint loadTexture(const char* path) {
     GLuint tex;
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    // <<< MODIFICATION 1/2 >>> Indique à OpenGL que la texture source est en sRGB
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB_ALPHA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
     stbi_image_free(data);
     return tex;
@@ -326,6 +327,9 @@ bool Initialise()
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glEnable(GL_CULL_FACE);
+    
+    // <<< MODIFICATION 2/2 >>> Active la conversion sRGB matérielle pour le framebuffer
+    glEnable(GL_FRAMEBUFFER_SRGB);
 
     return true;
 }
