@@ -2,10 +2,15 @@
 layout(location = 0) in vec3 a_position;
 layout(location = 1) in vec3 a_normal;
 
-// Matrices de transformation
+// La matrice modèle reste une uniform individuelle
 uniform mat4 u_model;
-uniform mat4 u_view;
-uniform mat4 u_projection;
+
+// Définition du bloc UBO partagé pour les matrices
+layout (std140) uniform Matrices
+{
+    mat4 projection;
+    mat4 view;
+};
 
 // Données à passer au Fragment Shader
 out vec3 v_worldPos;
@@ -17,9 +22,8 @@ void main()
     v_worldPos = vec3(u_model * vec4(a_position, 1.0));
     
     // Correction: Utilisation d'une transformation de normale plus simple et robuste
-    // pour éviter les problèmes liés à l'inversion de matrice.
     v_worldNormal = normalize(mat3(u_model) * a_normal);
     
-    // Position finale du sommet pour le rendu
-    gl_Position = u_projection * u_view * vec4(v_worldPos, 1.0);
+    // Position finale du sommet pour le rendu en utilisant les matrices de l'UBO
+    gl_Position = projection * view * vec4(v_worldPos, 1.0);
 }
