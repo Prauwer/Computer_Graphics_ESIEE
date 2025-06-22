@@ -2,6 +2,8 @@
 
 Ce projet est une application OpenGL avancée explorant diverses techniques de rendu 3D, de l'initialisation simple aux effets de post-traitement complexes et à l'intégration d'une interface utilisateur interactive. Il sert de bac à sable pour comprendre et implémenter les concepts fondamentaux de la synthèse d'images en temps réel.
 
+![image](https://github.com/user-attachments/assets/60611986-53ea-4abd-b5a2-2bb25be0d428)
+
 ## ✨ Fonctionnalités Clés
 
 Ce projet met en œuvre les fonctionnalités suivantes, structurées en modules logiques :
