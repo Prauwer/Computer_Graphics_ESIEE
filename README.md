@@ -71,7 +71,6 @@ Pour compiler et exécuter ce projet, assurez-vous d'avoir les dépendances suiv
 ├── .gitignore
 ├── GLShader.cpp
 ├── GLShader.h
-├── dragonData.h
 ├── main.cpp
 ├── mat4.h
 ├── Makefile
@@ -80,9 +79,9 @@ Pour compiler et exécuter ce projet, assurez-vous d'avoir les dépendances suiv
 │   │   ├── 3DApple002_SQ-1K-PNG.obj
 │   │   └── 3DApple002_SQ-1K-PNG_Color.png
 │   ├── cloudy/
-│   ├── cube.obj
 │   └── Yokohama3/
-│       └── readme.txt
+│   ├── cube.obj
+│   ├── sphere.obj
 ├── libs/
 │   ├── imgui/
 │   │   ├── imconfig.h
