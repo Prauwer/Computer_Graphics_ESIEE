@@ -603,7 +603,7 @@ int main(void)
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     #endif
 
-    g_window = glfwCreateWindow(FBO_WIDTH, FBO_HEIGHT, "Dragon", NULL, NULL);
+    g_window = glfwCreateWindow(FBO_WIDTH, FBO_HEIGHT, "Projet Computer Graphics", NULL, NULL);
     if (!g_window) {
         glfwTerminate();
         return -1;
