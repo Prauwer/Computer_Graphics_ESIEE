@@ -1,4 +1,4 @@
-# Projet de Rendu OpenGL : Exploration des Techniques Graphiques
+# Projet Computer Graphics (4I_IG1) par Antonin Mansour - Zackary Saada - Jovan Rahme
 
 Ce projet est une application OpenGL avancée explorant diverses techniques de rendu 3D, de l'initialisation simple aux effets de post-traitement complexes et à l'intégration d'une interface utilisateur interactive. Il sert de bac à sable pour comprendre et implémenter les concepts fondamentaux de la synthèse d'images en temps réel.
 
