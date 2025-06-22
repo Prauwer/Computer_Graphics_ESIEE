@@ -1,4 +1,3 @@
-
 #ifdef _WIN32
 #include <GL/glew.h>
 #include <GL/wglew.h>
@@ -41,8 +40,8 @@ GLuint  skyboxVAO = 0, skyboxVBO = 0;
 
 // Variables pour la caméra orbitale
 float g_cameraDistance = 5.0f;
-float g_cameraYaw = 0.0f;      // Angle horizontal autour de l'axe Y
-float g_cameraPitch = 0.0f;    // Angle vertical par rapport au plan XZ
+float g_cameraYaw = 0.0f;       // Angle horizontal autour de l'axe Y
+float g_cameraPitch = 0.0f;     // Angle vertical par rapport au plan XZ
 
 bool g_isDragging = false;
 double g_lastMouseX = 0.0;
@@ -215,9 +214,9 @@ GLuint loadCubemap(const std::vector<std::string>& faces)
     // Paramètres
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R,     GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S,      GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T,      GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R,      GL_CLAMP_TO_EDGE);
 
     return texID;
 }
@@ -411,15 +410,12 @@ void Render()
     // Étape d1. Configuration des matrices MVP (identique à votre code)
 
     // Matrice Modèle (transformations de l'objet)
-    // Simplification pour le débogage : on utilise une matrice identité.
-    // L'objet sera à l'origine, sans rotation ni scale.
-        // On réintroduit une matrice de transformation pour ajuster la taille.
     float rotationXAngle = 20.0f * 3.1415926535f / 180.0f; // 20 degrés en radians
 
     mat4 modelCube = 
-    mat4::translate(-1.0f, 0.5f, 0.0f)    // décale le cube à gauche
+    mat4::translate(-2.0f, 0.0f, 0.0f)   // décale le cube à gauche
   * mat4::rotateX(rotationXAngle)
-  * mat4::scale(1.0f, 1.0f, 1.0f);        // échelle réduite pour un cube de taille raisonnable
+  * mat4::scale(1.0f, 1.0f, 1.0f);       // échelle réduite pour un cube de taille raisonnable
 
     // Récupérer les localisations des uniformes
     GLint modelLoc = glGetUniformLocation(basicProgram, "u_model");
@@ -456,9 +452,9 @@ void Render()
     float rotationXAngleApple = 5.0f * 3.1415926535f / 180.0f; // 20 degrés en radians
 
     mat4 modelApple =
-    mat4::translate( 1.0f, 0.0f, 0.0f)    // décale la pomme à droite
+    mat4::translate( 2.0f, -0.5f, 0.0f)   // décale la pomme à droite
   * mat4::rotateX(rotationXAngleApple)
-  * mat4::scale(20.0f, 20.0f, 20.0f);     // garde votre facteur d’échelle
+  * mat4::scale(20.0f, 20.0f, 20.0f);   // garde votre facteur d’échelle
 
 
     // Récupérer les uniformes (shader texturé)
@@ -473,7 +469,7 @@ void Render()
     glUniformMatrix4fv(projectionLocT, 1, GL_FALSE, projectionMatrix.getPtr());
 
     // Étape e2. Application de la texture
-    glUniform1i(texLoc, 0);                    // sampler2D sur unité 0
+    glUniform1i(texLoc, 0);                 // sampler2D sur unité 0
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, secondTex);
 
@@ -490,10 +486,10 @@ void Render()
 
     glUseProgram(g_EnvShader.GetProgram());
 
-    // → on réutilise viewMatrix & projectionMatrix calculées en “d1/d2”
+
     mat4 modelEnv = 
-        mat4::translate(0.0f, 1.0f, 0.0f)
-      * mat4::scale     (1.5f, 1.5f, 1.5f);
+        mat4::translate(0.0f, 0.0f, 0.0f)
+      * mat4::scale       (.8f, .8f, .8f);
 
     loc = glGetUniformLocation(g_EnvShader.GetProgram(), "u_model");
     glUniformMatrix4fv(loc, 1, GL_FALSE, modelEnv.getPtr());
@@ -510,7 +506,7 @@ void Render()
     glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_CUBE_MAP, sphereCubemap);
     glUniform1i(glGetUniformLocation(g_EnvShader.GetProgram(), "u_envMap"), 3);
-
+    
     glBindVertexArray(g_envModel.vao);
     glDrawElements(GL_TRIANGLES, g_envModel.indexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
@@ -522,7 +518,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         if (action == GLFW_PRESS) {
             g_isDragging = true;
-               glfwGetCursorPos(window, &g_lastMouseX, &g_lastMouseY);
+                glfwGetCursorPos(window, &g_lastMouseX, &g_lastMouseY);
         } else if (action == GLFW_RELEASE) {
             g_isDragging = false;
         }
