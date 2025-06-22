@@ -25,9 +25,6 @@
 #include "imgui_impl_opengl3.h"
 // ----------------------
 
-// These defines are typically placed in one .cpp file, often the main one,
-// to include the implementation of the stb_image and tinyobjloader libraries.
-// Keeping them here as they were part of your original setup.
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
@@ -74,6 +71,8 @@ double g_lastMouseY = 0.0;
 
 // --- ImGui Post-processing state ---
 int g_selectedPostProcessEffect = 0; // 0: None, 1: Grayscale, 2: Invert, 3: Sepia
+float g_saturation = 1.0f; // New: Saturation control (1.0 for original)
+float g_contrast = 1.0f;   // New: Contrast control (1.0 for original)
 // -----------------------------------
 
 // Callback functions for GLFW
@@ -135,9 +134,9 @@ void window_size_callback(GLFWwindow* window, int width, int height) {
 GLuint loadTexture(const char* path) {
     int w, h, n;
     unsigned char* data = stbi_load(path, &w, &h, &n, STBI_rgb_alpha);
-    // In a non-debug build, you might handle this more gracefully,
-    // e.g., load a default texture or log to a file.
-    // Error check removed as per request.
+    if (!data) {
+        return 0;
+    }
     GLuint tex;
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
@@ -166,7 +165,6 @@ Model loadObjModel(const std::string& filepath) {
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
     std::string warn, err;
-    // Error check removed as per request.
     tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath.c_str());
     
     std::vector<Vertex> vertices;
@@ -215,7 +213,6 @@ GLuint loadCubemap(const std::vector<std::string>& faces) {
     int w, h, n;
     for (GLuint i = 0; i < faces.size(); i++) {
         unsigned char* data = stbi_load(faces[i].c_str(), &w, &h, &n, STBI_rgb_alpha);
-        // Error check removed as per request.
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
         stbi_image_free(data);
     }
@@ -230,28 +227,28 @@ GLuint loadCubemap(const std::vector<std::string>& faces) {
 bool Initialise() {
     g_BasicShader.LoadVertexShader("shaders/basic.vs");
     g_BasicShader.LoadFragmentShader("shaders/basic.fs");
-    g_BasicShader.Create(); // Error check removed
+    g_BasicShader.Create();
 
     g_TextureShader.LoadVertexShader("shaders/texture.vs");
     g_TextureShader.LoadFragmentShader("shaders/texture.fs");
-    g_TextureShader.Create(); // Error check removed
+    g_TextureShader.Create();
 
     g_EnvShader.LoadVertexShader("shaders/env.vs");
     g_EnvShader.LoadFragmentShader("shaders/env.fs");
-    g_EnvShader.Create(); // Error check removed
+    g_EnvShader.Create();
 
     g_SkyboxShader.LoadVertexShader("shaders/skybox.vs");
     g_SkyboxShader.LoadFragmentShader("shaders/skybox.fs");
-    g_SkyboxShader.Create(); // Error check removed
+    g_SkyboxShader.Create();
 
     g_PhongShader.LoadVertexShader("shaders/phong.vs");
     g_PhongShader.LoadFragmentShader("shaders/phong.fs");
-    g_PhongShader.Create(); // Error check removed
+    g_PhongShader.Create();
     
     // Screen quad shader setup
     g_ScreenQuadShader.LoadVertexShader("shaders/screen_quad.vs");
     g_ScreenQuadShader.LoadFragmentShader("shaders/screen_quad.fs");
-    g_ScreenQuadShader.Create(); // Error check removed
+    g_ScreenQuadShader.Create();
 
     glGenBuffers(1, &g_uboMatrices);
     glBindBuffer(GL_UNIFORM_BUFFER, g_uboMatrices);
@@ -287,9 +284,7 @@ bool Initialise() {
     #endif
 
     secondTex = loadTexture("assets/3DApple002_SQ-1K-PNG/3DApple002_SQ-1K-PNG_Color.png");    
-    // Error check removed
 
-    // try-catch block removed
     g_mainModel = loadObjModel("assets/cube.obj");
     g_secondModel = loadObjModel("assets/3DApple002_SQ-1K-PNG/3DApple002_SQ-1K-PNG.obj");
     g_envModel = loadObjModel("assets/sphere.obj");
@@ -317,7 +312,6 @@ bool Initialise() {
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, FBO_WIDTH, FBO_HEIGHT);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, g_rboDepthStencil);
 
-    // Error check removed
     glCheckFramebufferStatus(GL_FRAMEBUFFER);
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // Bind back to default framebuffer
 
@@ -375,12 +369,21 @@ void Render()
     ImGui::NewFrame();
 
     // --- ImGui UI for Post-processing ---
+    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver); // Position (x, y) et condition
+    ImGui::SetNextWindowSize(ImVec2(300, 250), ImGuiCond_FirstUseEver); // Taille (largeur, hauteur) et condition
     ImGui::Begin("Options de Post-traitement");
     ImGui::Text("Choisissez un effet :");
     ImGui::RadioButton("Aucun", &g_selectedPostProcessEffect, 0);
     ImGui::RadioButton("Niveaux de gris", &g_selectedPostProcessEffect, 1);
     ImGui::RadioButton("Inverser couleurs", &g_selectedPostProcessEffect, 2);
     ImGui::RadioButton("Sépia", &g_selectedPostProcessEffect, 3);
+    
+    ImGui::Separator(); // Add a separator for better visual organization
+    ImGui::Text("Colorimétrie :");
+    // Sliders for saturation and contrast
+    ImGui::SliderFloat("Saturation", &g_saturation, 0.0f, 2.0f, "%.3f"); // Range from 0.0 (desaturated) to 2.0 (super saturated)
+    ImGui::SliderFloat("Contraste", &g_contrast, 0.0f, 2.0f, "%.3f");   // Range from 0.0 (no contrast) to 2.0 (high contrast)
+
     ImGui::End();
     // ------------------------------------
 
@@ -481,7 +484,10 @@ void Render()
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, g_fboTexture);
     glUniform1i(glGetUniformLocation(g_ScreenQuadShader.GetProgram(), "screenTexture"), 0);
-    glUniform1i(glGetUniformLocation(g_ScreenQuadShader.GetProgram(), "u_postProcessEffect"), g_selectedPostProcessEffect); // Pass selected effect
+    glUniform1i(glGetUniformLocation(g_ScreenQuadShader.GetProgram(), "u_postProcessEffect"), g_selectedPostProcessEffect);
+    // New: Pass saturation and contrast uniforms
+    glUniform1f(glGetUniformLocation(g_ScreenQuadShader.GetProgram(), "u_saturation"), g_saturation);
+    glUniform1f(glGetUniformLocation(g_ScreenQuadShader.GetProgram(), "u_contrast"), g_contrast);
 
     glBindVertexArray(g_screenQuadVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6); // Draw the quad
@@ -540,8 +546,6 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
-    // You can add application-specific key handling here, 
-    // but typically after checking ImGui::GetIO().WantCaptureKeyboard
 }
 
 void char_callback(GLFWwindow* window, unsigned int c) {
@@ -607,7 +611,6 @@ int main(void)
     glfwMakeContextCurrent(g_window);
 
     // --- Set GLFW callbacks to also be handled by ImGui ---
-    // Explicitly set YOUR callbacks. ImGui will be forwarded events from these.
     glfwSetWindowSizeCallback(g_window, window_size_callback);
     glfwSetMouseButtonCallback(g_window, mouse_button_callback);
     glfwSetCursorPosCallback(g_window, cursor_position_callback);
@@ -620,8 +623,6 @@ int main(void)
     glewInit();
     #endif
     
-    // Initialise() now returns false if any critical asset fails to load
-    // or shader compilation/linking fails.
     if (!Initialise()) {
         Terminate();
         glfwTerminate();
@@ -629,9 +630,6 @@ int main(void)
     }
     
     while (!glfwWindowShouldClose(g_window)) {
-        // No try-catch in main loop as per request,
-        // relying on robust error handling in Initialise and
-        // the assumption that rendering calls are now stable.
         Render();
         glfwSwapBuffers(g_window);
         glfwPollEvents();
