@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdint>
+#include <cstdint> // Ensure this is available
 
 class GLShader
 {
@@ -15,11 +15,10 @@ private:
 	// lors de la rasterization/remplissage de la primitive
 	uint32_t m_FragmentShader;
 
-	bool CompileShader(uint32_t type);
 public:
+	// Initialisation des membres dans le constructeur
 	GLShader() : m_Program(0), m_VertexShader(0),
 		m_GeometryShader(0), m_FragmentShader(0) {
-
 	}
 	~GLShader() {}
 

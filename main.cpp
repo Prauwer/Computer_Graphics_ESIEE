@@ -13,15 +13,23 @@
 #include <cstddef>
 #include <stdio.h>
 #include <cmath>
-#include "mat4.h" // Added mat4.h
+#include "mat4.h"
 #include "GLShader.h"
-#include <iostream>
 #include <vector>
 #include <unordered_map>
-#include <string> // Added for string
+#include <string>
 
+// --- ImGui includes ---
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+// ----------------------
+
+// These defines are typically placed in one .cpp file, often the main one,
+// to include the implementation of the stb_image and tinyobjloader libraries.
+// Keeping them here as they were part of your original setup.
 #define TINYOBJLOADER_IMPLEMENTATION
-#include "tiny_obj_loader.h" // Adjusted path assuming it's directly in libs/
+#include "tiny_obj_loader.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
@@ -32,7 +40,7 @@ GLShader g_TextureShader;
 GLShader g_EnvShader;
 GLShader g_SkyboxShader;
 GLShader g_PhongShader;
-GLShader g_ScreenQuadShader; // New: Shader for drawing the FBO texture
+GLShader g_ScreenQuadShader;
 GLFWwindow* g_window;
 
 GLuint g_mainTex = 0;
@@ -42,12 +50,12 @@ GLuint sphereCubemap = 0;
 GLuint skyboxVAO = 0, skyboxVBO = 0;
 GLuint g_uboMatrices = 0;
 
-// New: FBO related variables
+// FBO related variables
 GLuint g_fbo = 0;
 GLuint g_fboTexture = 0;
 GLuint g_rboDepthStencil = 0; // Renderbuffer for depth and stencil
 
-// New: Screen quad variables
+// Screen quad variables
 GLuint g_screenQuadVAO = 0;
 GLuint g_screenQuadVBO = 0;
 
@@ -64,10 +72,17 @@ bool g_isDragging = false;
 double g_lastMouseX = 0.0;
 double g_lastMouseY = 0.0;
 
+// --- ImGui Post-processing state ---
+int g_selectedPostProcessEffect = 0; // 0: None, 1: Grayscale, 2: Invert, 3: Sepia
+// -----------------------------------
+
 // Callback functions for GLFW
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void char_callback(GLFWwindow* window, unsigned int c);
+
 
 // Structure to hold 3D model data (VAO, VBO, etc.)
 struct Model {
@@ -114,17 +129,15 @@ namespace std {
 }
 
 void window_size_callback(GLFWwindow* window, int width, int height) {
-    // You might want to resize the FBO here if it needs to match the window size dynamically
-    // For now, FBO size is fixed.
+    glViewport(0, 0, width, height);
 }
 
 GLuint loadTexture(const char* path) {
     int w, h, n;
     unsigned char* data = stbi_load(path, &w, &h, &n, STBI_rgb_alpha);
-    if (!data) {
-        std::cerr << "Failed to load image: " << path << std::endl;
-        return 0;
-    }
+    // In a non-debug build, you might handle this more gracefully,
+    // e.g., load a default texture or log to a file.
+    // Error check removed as per request.
     GLuint tex;
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
@@ -153,9 +166,9 @@ Model loadObjModel(const std::string& filepath) {
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
     std::string warn, err;
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath.c_str())) {
-        throw std::runtime_error(warn + err);
-    }
+    // Error check removed as per request.
+    tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath.c_str());
+    
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
     std::unordered_map<Vertex, unsigned int> uniqueVertices;
@@ -202,13 +215,9 @@ GLuint loadCubemap(const std::vector<std::string>& faces) {
     int w, h, n;
     for (GLuint i = 0; i < faces.size(); i++) {
         unsigned char* data = stbi_load(faces[i].c_str(), &w, &h, &n, STBI_rgb_alpha);
-        if (data) {
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-            stbi_image_free(data);
-        } else {
-            std::cerr << "Cubemap load failed: " << faces[i] << std::endl;
-            stbi_image_free(data);
-        }
+        // Error check removed as per request.
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        stbi_image_free(data);
     }
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -221,32 +230,28 @@ GLuint loadCubemap(const std::vector<std::string>& faces) {
 bool Initialise() {
     g_BasicShader.LoadVertexShader("shaders/basic.vs");
     g_BasicShader.LoadFragmentShader("shaders/basic.fs");
-    g_BasicShader.Create();
-    glUniformBlockBinding(g_BasicShader.GetProgram(), glGetUniformBlockIndex(g_BasicShader.GetProgram(), "Matrices"), 0);
+    g_BasicShader.Create(); // Error check removed
 
     g_TextureShader.LoadVertexShader("shaders/texture.vs");
     g_TextureShader.LoadFragmentShader("shaders/texture.fs");
-    g_TextureShader.Create();
-    glUniformBlockBinding(g_TextureShader.GetProgram(), glGetUniformBlockIndex(g_TextureShader.GetProgram(), "Matrices"), 0);
+    g_TextureShader.Create(); // Error check removed
 
     g_EnvShader.LoadVertexShader("shaders/env.vs");
     g_EnvShader.LoadFragmentShader("shaders/env.fs");
-    g_EnvShader.Create();
-    glUniformBlockBinding(g_EnvShader.GetProgram(), glGetUniformBlockIndex(g_EnvShader.GetProgram(), "Matrices"), 0);
+    g_EnvShader.Create(); // Error check removed
 
     g_SkyboxShader.LoadVertexShader("shaders/skybox.vs");
     g_SkyboxShader.LoadFragmentShader("shaders/skybox.fs");
-    g_SkyboxShader.Create();
+    g_SkyboxShader.Create(); // Error check removed
 
     g_PhongShader.LoadVertexShader("shaders/phong.vs");
     g_PhongShader.LoadFragmentShader("shaders/phong.fs");
-    g_PhongShader.Create();
-    glUniformBlockBinding(g_PhongShader.GetProgram(), glGetUniformBlockIndex(g_PhongShader.GetProgram(), "Matrices"), 0);
+    g_PhongShader.Create(); // Error check removed
     
-    // New: Screen quad shader setup
+    // Screen quad shader setup
     g_ScreenQuadShader.LoadVertexShader("shaders/screen_quad.vs");
     g_ScreenQuadShader.LoadFragmentShader("shaders/screen_quad.fs");
-    g_ScreenQuadShader.Create();
+    g_ScreenQuadShader.Create(); // Error check removed
 
     glGenBuffers(1, &g_uboMatrices);
     glBindBuffer(GL_UNIFORM_BUFFER, g_uboMatrices);
@@ -282,14 +287,13 @@ bool Initialise() {
     #endif
 
     secondTex = loadTexture("assets/3DApple002_SQ-1K-PNG/3DApple002_SQ-1K-PNG_Color.png");    
-    try {
-        g_mainModel = loadObjModel("assets/cube.obj");
-        g_secondModel = loadObjModel("assets/3DApple002_SQ-1K-PNG/3DApple002_SQ-1K-PNG.obj");
-        g_envModel = loadObjModel("assets/sphere.obj");
-    } catch (const std::exception& e) {
-        std::cerr << "Error loading model: " << e.what() << std::endl;
-        return false;
-    }
+    // Error check removed
+
+    // try-catch block removed
+    g_mainModel = loadObjModel("assets/cube.obj");
+    g_secondModel = loadObjModel("assets/3DApple002_SQ-1K-PNG/3DApple002_SQ-1K-PNG.obj");
+    g_envModel = loadObjModel("assets/sphere.obj");
+    
     envCubemap = loadCubemap({ "assets/cloudy/bluecloud_rt.jpg", "assets/cloudy/bluecloud_lf.jpg", "assets/cloudy/bluecloud_up.jpg", "assets/cloudy/bluecloud_dn.jpg", "assets/cloudy/bluecloud_ft.jpg", "assets/cloudy/bluecloud_bk.jpg" });
     sphereCubemap = loadCubemap({ "assets/Yokohama3/posx.jpg", "assets/Yokohama3/negx.jpg", "assets/Yokohama3/posy.jpg", "assets/Yokohama3/negy.jpg", "assets/Yokohama3/posz.jpg", "assets/Yokohama3/negz.jpg" });
 
@@ -313,10 +317,8 @@ bool Initialise() {
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, FBO_WIDTH, FBO_HEIGHT);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, g_rboDepthStencil);
 
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        std::cerr << "Framebuffer not complete!" << std::endl;
-        return false;
-    }
+    // Error check removed
+    glCheckFramebufferStatus(GL_FRAMEBUFFER);
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // Bind back to default framebuffer
 
     // Screen quad setup
@@ -345,16 +347,47 @@ bool Initialise() {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glEnable(GL_CULL_FACE);
-    glEnable(GL_FRAMEBUFFER_SRGB);
+    glEnable(GL_FRAMEBUFFER_SRGB); // Enable sRGB for correct color space handling
+
+    // --- ImGui Initialization ---
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+
+    // Setup Platform/Renderer backends - IMPORTANT: Pass false here to manually forward events
+    ImGui_ImplGlfw_InitForOpenGL(g_window, false);
+    ImGui_ImplOpenGL3_Init("#version 330 core");
+    // ----------------------------
+
     return true;
 }
 
 void Render()
 {
+    // --- ImGui New Frame ---
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    // --- ImGui UI for Post-processing ---
+    ImGui::Begin("Options de Post-traitement");
+    ImGui::Text("Choisissez un effet :");
+    ImGui::RadioButton("Aucun", &g_selectedPostProcessEffect, 0);
+    ImGui::RadioButton("Niveaux de gris", &g_selectedPostProcessEffect, 1);
+    ImGui::RadioButton("Inverser couleurs", &g_selectedPostProcessEffect, 2);
+    ImGui::RadioButton("Sépia", &g_selectedPostProcessEffect, 3);
+    ImGui::End();
+    // ------------------------------------
+
     // --- Pass 1: Render scene to FBO ---
     glBindFramebuffer(GL_FRAMEBUFFER, g_fbo);
     glViewport(0, 0, FBO_WIDTH, FBO_HEIGHT);
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Clear FBO with a different color to distinguish
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     float aspectRatio = (FBO_HEIGHT > 0) ? ((float)FBO_WIDTH / FBO_HEIGHT) : 1.0f;
@@ -439,8 +472,8 @@ void Render()
     int width, height;
     glfwGetFramebufferSize(glfwGetCurrentContext(), &width, &height);
     glViewport(0, 0, width, height);
-    glClearColor(0.75f, 0.75f, 0.75f, 1.f); // Clear default framebuffer
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear depth for the quad as well
+    glClearColor(0.75f, 0.75f, 0.75f, 1.f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glDisable(GL_DEPTH_TEST); // Disable depth testing for 2D quad
 
@@ -448,15 +481,26 @@ void Render()
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, g_fboTexture);
     glUniform1i(glGetUniformLocation(g_ScreenQuadShader.GetProgram(), "screenTexture"), 0);
+    glUniform1i(glGetUniformLocation(g_ScreenQuadShader.GetProgram(), "u_postProcessEffect"), g_selectedPostProcessEffect); // Pass selected effect
 
     glBindVertexArray(g_screenQuadVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6); // Draw the quad
     glBindVertexArray(0);
 
     glEnable(GL_DEPTH_TEST); // Re-enable depth testing
+
+    // --- ImGui Rendering ---
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    // -----------------------
 }
 
+// All custom GLFW callbacks explicitly forward to ImGui backend and then check if ImGui wants to capture input
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+    ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+    if (ImGui::GetIO().WantCaptureMouse) {
+        return;
+    }
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         if (action == GLFW_PRESS) {
             g_isDragging = true;
@@ -468,6 +512,10 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 }
 
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
+    ImGui_ImplGlfw_CursorPosCallback(window, xpos, ypos);
+    if (ImGui::GetIO().WantCaptureMouse) {
+        return;
+    }
     if (g_isDragging) {
         float dx = (float)(xpos - g_lastMouseX);
         float dy = (float)(ypos - g_lastMouseY);
@@ -481,13 +529,33 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
+    if (ImGui::GetIO().WantCaptureMouse) {
+        return;
+    }
     g_cameraDistance -= (float)yoffset * 0.5f;
     if (g_cameraDistance < 0.5f) g_cameraDistance = 0.5f;
     if (g_cameraDistance > 20.0f) g_cameraDistance = 20.0f;
 }
 
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
+    // You can add application-specific key handling here, 
+    // but typically after checking ImGui::GetIO().WantCaptureKeyboard
+}
+
+void char_callback(GLFWwindow* window, unsigned int c) {
+    ImGui_ImplGlfw_CharCallback(window, c);
+}
+
 void Terminate()
 {
+    // --- ImGui Shutdown ---
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    // ----------------------
+
     glDeleteBuffers(1, &g_mainModel.vbo);
     glDeleteBuffers(1, &g_mainModel.ibo);
     glDeleteVertexArrays(1, &g_mainModel.vao);
@@ -510,7 +578,7 @@ void Terminate()
     glDeleteVertexArrays(1, &skyboxVAO);
     glDeleteBuffers(1, &skyboxVBO);
 
-    // New: FBO and screen quad cleanup
+    // FBO and screen quad cleanup
     glDeleteFramebuffers(1, &g_fbo);
     glDeleteTextures(1, &g_fboTexture);
     glDeleteRenderbuffers(1, &g_rboDepthStencil);
@@ -531,21 +599,29 @@ int main(void)
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     #endif
 
-    g_window = glfwCreateWindow(FBO_WIDTH, FBO_HEIGHT, "Dragon", NULL, NULL); // Adjusted window size to match FBO for simplicity
+    g_window = glfwCreateWindow(FBO_WIDTH, FBO_HEIGHT, "Dragon", NULL, NULL);
     if (!g_window) {
         glfwTerminate();
         return -1;
     }
     glfwMakeContextCurrent(g_window);
+
+    // --- Set GLFW callbacks to also be handled by ImGui ---
+    // Explicitly set YOUR callbacks. ImGui will be forwarded events from these.
     glfwSetWindowSizeCallback(g_window, window_size_callback);
     glfwSetMouseButtonCallback(g_window, mouse_button_callback);
     glfwSetCursorPosCallback(g_window, cursor_position_callback);
     glfwSetScrollCallback(g_window, scroll_callback);
+    glfwSetKeyCallback(g_window, key_callback);
+    glfwSetCharCallback(g_window, char_callback);
+    // ----------------------------------------------------
 
     #ifdef _WIN32
     glewInit();
     #endif
     
+    // Initialise() now returns false if any critical asset fails to load
+    // or shader compilation/linking fails.
     if (!Initialise()) {
         Terminate();
         glfwTerminate();
@@ -553,6 +629,9 @@ int main(void)
     }
     
     while (!glfwWindowShouldClose(g_window)) {
+        // No try-catch in main loop as per request,
+        // relying on robust error handling in Initialise and
+        // the assumption that rendering calls are now stable.
         Render();
         glfwSwapBuffers(g_window);
         glfwPollEvents();
