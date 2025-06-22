@@ -18,6 +18,7 @@
 #include <iostream>
 #include <vector>
 #include <unordered_map>
+#include <string> // Added for string
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h" // Adjusted path assuming it's directly in libs/
@@ -28,17 +29,31 @@
 // Global variables
 GLShader g_BasicShader;
 GLShader g_TextureShader;
-GLShader  g_EnvShader;
+GLShader g_EnvShader;
 GLShader g_SkyboxShader;
 GLShader g_PhongShader;
+GLShader g_ScreenQuadShader; // New: Shader for drawing the FBO texture
 GLFWwindow* g_window;
 
 GLuint g_mainTex = 0;
 GLuint secondTex = 0;
 GLuint envCubemap = 0;
 GLuint sphereCubemap = 0;
-GLuint  skyboxVAO = 0, skyboxVBO = 0;
+GLuint skyboxVAO = 0, skyboxVBO = 0;
 GLuint g_uboMatrices = 0;
+
+// New: FBO related variables
+GLuint g_fbo = 0;
+GLuint g_fboTexture = 0;
+GLuint g_rboDepthStencil = 0; // Renderbuffer for depth and stencil
+
+// New: Screen quad variables
+GLuint g_screenQuadVAO = 0;
+GLuint g_screenQuadVBO = 0;
+
+// FBO dimensions (can be different from window dimensions)
+const int FBO_WIDTH = 1024;
+const int FBO_HEIGHT = 768;
 
 // Variables pour la caméra orbitale
 float g_cameraDistance = 5.0f;
@@ -98,17 +113,27 @@ namespace std {
     };
 }
 
-void window_size_callback(GLFWwindow* window, int width, int height) {}
+void window_size_callback(GLFWwindow* window, int width, int height) {
+    // You might want to resize the FBO here if it needs to match the window size dynamically
+    // For now, FBO size is fixed.
+}
 
 GLuint loadTexture(const char* path) {
     int w, h, n;
     unsigned char* data = stbi_load(path, &w, &h, &n, STBI_rgb_alpha);
+    if (!data) {
+        std::cerr << "Failed to load image: " << path << std::endl;
+        return 0;
+    }
     GLuint tex;
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
-    // <<< CORRECTION sRGB 1/2 >>>
     glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB_ALPHA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     stbi_image_free(data);
     return tex;
 }
@@ -178,7 +203,6 @@ GLuint loadCubemap(const std::vector<std::string>& faces) {
     for (GLuint i = 0; i < faces.size(); i++) {
         unsigned char* data = stbi_load(faces[i].c_str(), &w, &h, &n, STBI_rgb_alpha);
         if (data) {
-            // Note: Les cubemaps pour l'éclairage ne sont généralement pas en sRGB
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
             stbi_image_free(data);
         } else {
@@ -213,12 +237,16 @@ bool Initialise() {
     g_SkyboxShader.LoadVertexShader("shaders/skybox.vs");
     g_SkyboxShader.LoadFragmentShader("shaders/skybox.fs");
     g_SkyboxShader.Create();
-    // Pas de binding UBO pour la nouvelle skybox
 
     g_PhongShader.LoadVertexShader("shaders/phong.vs");
     g_PhongShader.LoadFragmentShader("shaders/phong.fs");
     g_PhongShader.Create();
     glUniformBlockBinding(g_PhongShader.GetProgram(), glGetUniformBlockIndex(g_PhongShader.GetProgram(), "Matrices"), 0);
+    
+    // New: Screen quad shader setup
+    g_ScreenQuadShader.LoadVertexShader("shaders/screen_quad.vs");
+    g_ScreenQuadShader.LoadFragmentShader("shaders/screen_quad.fs");
+    g_ScreenQuadShader.Create();
 
     glGenBuffers(1, &g_uboMatrices);
     glBindBuffer(GL_UNIFORM_BUFFER, g_uboMatrices);
@@ -253,7 +281,7 @@ bool Initialise() {
     wglSwapIntervalEXT(1);
     #endif
 
-    secondTex = loadTexture("assets/3DApple002_SQ-1K-PNG/3DApple002_SQ-1K-PNG_Color.png"); 
+    secondTex = loadTexture("assets/3DApple002_SQ-1K-PNG/3DApple002_SQ-1K-PNG_Color.png");    
     try {
         g_mainModel = loadObjModel("assets/cube.obj");
         g_secondModel = loadObjModel("assets/3DApple002_SQ-1K-PNG/3DApple002_SQ-1K-PNG.obj");
@@ -265,30 +293,78 @@ bool Initialise() {
     envCubemap = loadCubemap({ "assets/cloudy/bluecloud_rt.jpg", "assets/cloudy/bluecloud_lf.jpg", "assets/cloudy/bluecloud_up.jpg", "assets/cloudy/bluecloud_dn.jpg", "assets/cloudy/bluecloud_ft.jpg", "assets/cloudy/bluecloud_bk.jpg" });
     sphereCubemap = loadCubemap({ "assets/Yokohama3/posx.jpg", "assets/Yokohama3/negx.jpg", "assets/Yokohama3/posy.jpg", "assets/Yokohama3/negy.jpg", "assets/Yokohama3/posz.jpg", "assets/Yokohama3/negz.jpg" });
 
+    // FBO setup
+    glGenFramebuffers(1, &g_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, g_fbo);
+
+    // Create a color attachment texture
+    glGenTextures(1, &g_fboTexture);
+    glBindTexture(GL_TEXTURE_2D, g_fboTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, FBO_WIDTH, FBO_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // Prevent sampling outside bounds
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); // Prevent sampling outside bounds
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_fboTexture, 0);
+
+    // Create a renderbuffer object for depth and stencil attachment
+    glGenRenderbuffers(1, &g_rboDepthStencil);
+    glBindRenderbuffer(GL_RENDERBUFFER, g_rboDepthStencil);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, FBO_WIDTH, FBO_HEIGHT);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, g_rboDepthStencil);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "Framebuffer not complete!" << std::endl;
+        return false;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // Bind back to default framebuffer
+
+    // Screen quad setup
+    float quadVertices[] = {
+        // positions   // texture Coords
+        -1.0f,  1.0f,  0.0f, 1.0f, // top-left
+        -1.0f, -1.0f,  0.0f, 0.0f, // bottom-left
+         1.0f, -1.0f,  1.0f, 0.0f, // bottom-right
+
+        -1.0f,  1.0f,  0.0f, 1.0f, // top-left
+         1.0f, -1.0f,  1.0f, 0.0f, // bottom-right
+         1.0f,  1.0f,  1.0f, 1.0f  // top-right
+    };
+    glGenVertexArrays(1, &g_screenQuadVAO);
+    glGenBuffers(1, &g_screenQuadVBO);
+    glBindVertexArray(g_screenQuadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, g_screenQuadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0); // Position
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float))); // Texture coordinates
+    glBindVertexArray(0);
+
+
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glEnable(GL_CULL_FACE);
-    // <<< CORRECTION sRGB 2/2 >>>
     glEnable(GL_FRAMEBUFFER_SRGB);
     return true;
 }
 
 void Render()
 {
-    int width, height;
-    glfwGetFramebufferSize(glfwGetCurrentContext(), &width, &height);
-    glViewport(0, 0, width, height);
-    glClearColor(0.75f, 0.75f, 0.75f, 1.f);
+    // --- Pass 1: Render scene to FBO ---
+    glBindFramebuffer(GL_FRAMEBUFFER, g_fbo);
+    glViewport(0, 0, FBO_WIDTH, FBO_HEIGHT);
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Clear FBO with a different color to distinguish
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    float aspectRatio = (height > 0) ? ((float)width / height) : 1.0f;
+    float aspectRatio = (FBO_HEIGHT > 0) ? ((float)FBO_WIDTH / FBO_HEIGHT) : 1.0f;
     float camX = g_cameraDistance * sin(g_cameraYaw) * cos(g_cameraPitch);
     float camY = g_cameraDistance * sin(g_cameraPitch);
     float camZ = g_cameraDistance * cos(g_cameraYaw) * cos(g_cameraPitch);
     mat4 viewMatrix = mat4::lookAt(vec3(camX, camY, camZ), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f));
     mat4 projectionMatrix = mat4::perspective(45.0f * 3.14159f / 180.0f, aspectRatio, 0.01f, 100.0f);
     
-    // Mise à jour de l'UBO (une seule fois pour tous les objets)
+    // Mise à jour de l'UBO pour le FBO rendering
     UniformBlockMatrices uboData;
     uboData.projection = projectionMatrix;
     uboData.view = viewMatrix;
@@ -296,8 +372,8 @@ void Render()
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UniformBlockMatrices), &uboData);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-    // 1) DESSIN DU SKYBOX 
-    glDepthFunc(GL_LEQUAL); 
+    // 1) DESSIN DU SKYBOX
+    glDepthFunc(GL_LEQUAL);
     glUseProgram(g_SkyboxShader.GetProgram());
     
     mat4 viewNoTrans = viewMatrix;
@@ -314,11 +390,11 @@ void Render()
     glBindVertexArray(skyboxVAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     
-    glDepthFunc(GL_LESS); 
+    glDepthFunc(GL_LESS);
     
     // 2) DESSIN DU CUBE (AVEC ÉCLAIRAGE PHONG)
     auto phongProgram = g_PhongShader.GetProgram();
-    glUseProgram(phongProgram); 
+    glUseProgram(phongProgram);
     float rotationXAngle = 20.0f * 3.1415926535f / 180.0f;
     mat4 modelCube = mat4::translate(-2.0f, 0.0f, 0.0f) * mat4::rotateX(rotationXAngle) * mat4::scale(1.0f, 1.0f, 1.0f);
     glUniformMatrix4fv(glGetUniformLocation(phongProgram, "u_model"), 1, GL_FALSE, modelCube.getPtr());
@@ -355,6 +431,29 @@ void Render()
     glBindVertexArray(g_envModel.vao);
     glDrawElements(GL_TRIANGLES, g_envModel.indexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // Bind back to default framebuffer
+
+
+    // --- Pass 2: Render FBO texture to screen ---
+    int width, height;
+    glfwGetFramebufferSize(glfwGetCurrentContext(), &width, &height);
+    glViewport(0, 0, width, height);
+    glClearColor(0.75f, 0.75f, 0.75f, 1.f); // Clear default framebuffer
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear depth for the quad as well
+
+    glDisable(GL_DEPTH_TEST); // Disable depth testing for 2D quad
+
+    glUseProgram(g_ScreenQuadShader.GetProgram());
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, g_fboTexture);
+    glUniform1i(glGetUniformLocation(g_ScreenQuadShader.GetProgram(), "screenTexture"), 0);
+
+    glBindVertexArray(g_screenQuadVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6); // Draw the quad
+    glBindVertexArray(0);
+
+    glEnable(GL_DEPTH_TEST); // Re-enable depth testing
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -393,20 +492,31 @@ void Terminate()
     glDeleteBuffers(1, &g_mainModel.ibo);
     glDeleteVertexArrays(1, &g_mainModel.vao);
     g_BasicShader.Destroy();
+
     glDeleteBuffers(1, &g_secondModel.vbo);
     glDeleteBuffers(1, &g_secondModel.ibo);
     glDeleteVertexArrays(1, &g_secondModel.vao);
     glDeleteTextures(1, &secondTex);
     g_TextureShader.Destroy();
+
     glDeleteBuffers(1, &g_envModel.vbo);
     glDeleteBuffers(1, &g_envModel.ibo);
     glDeleteVertexArrays(1, &g_envModel.vao);
     glDeleteTextures(1, &envCubemap);
     g_EnvShader.Destroy();
     g_PhongShader.Destroy();
+
     glDeleteBuffers(1, &g_uboMatrices);
     glDeleteVertexArrays(1, &skyboxVAO);
     glDeleteBuffers(1, &skyboxVBO);
+
+    // New: FBO and screen quad cleanup
+    glDeleteFramebuffers(1, &g_fbo);
+    glDeleteTextures(1, &g_fboTexture);
+    glDeleteRenderbuffers(1, &g_rboDepthStencil);
+    g_ScreenQuadShader.Destroy();
+    glDeleteVertexArrays(1, &g_screenQuadVAO);
+    glDeleteBuffers(1, &g_screenQuadVBO);
 }
 
 int main(void)
@@ -421,7 +531,7 @@ int main(void)
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     #endif
 
-    g_window = glfwCreateWindow(640, 480, "Dragon", NULL, NULL);
+    g_window = glfwCreateWindow(FBO_WIDTH, FBO_HEIGHT, "Dragon", NULL, NULL); // Adjusted window size to match FBO for simplicity
     if (!g_window) {
         glfwTerminate();
         return -1;
@@ -436,7 +546,11 @@ int main(void)
     glewInit();
     #endif
     
-    Initialise();
+    if (!Initialise()) {
+        Terminate();
+        glfwTerminate();
+        return -1;
+    }
     
     while (!glfwWindowShouldClose(g_window)) {
         Render();
