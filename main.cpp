@@ -36,6 +36,7 @@ GLFWwindow* g_window;
 GLuint g_mainTex = 0; // Global texture object
 GLuint secondTex = 0; // Global texture object
 GLuint envCubemap = 0;
+GLuint sphereCubemap = 0;
 GLuint  skyboxVAO = 0, skyboxVBO = 0;
 
 // Variables pour la caméra orbitale
@@ -308,6 +309,15 @@ bool Initialise()
         "assets/cloudy/bluecloud_bk.jpg"
     });
 
+    sphereCubemap = loadCubemap({
+        "assets/Yokohama3/posx.jpg",
+        "assets/Yokohama3/negx.jpg",
+        "assets/Yokohama3/posy.jpg",
+        "assets/Yokohama3/negy.jpg",
+        "assets/Yokohama3/posz.jpg",
+        "assets/Yokohama3/negz.jpg"
+    });
+
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glEnable(GL_CULL_FACE);
@@ -498,9 +508,8 @@ void Render()
 
     // lier la cubemap sur l’unité 3
     glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
-    loc = glGetUniformLocation(g_EnvShader.GetProgram(), "u_envMap");
-    glUniform1i(loc, 3);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, sphereCubemap);
+    glUniform1i(glGetUniformLocation(g_EnvShader.GetProgram(), "u_envMap"), 3);
 
     glBindVertexArray(g_envModel.vao);
     glDrawElements(GL_TRIANGLES, g_envModel.indexCount, GL_UNSIGNED_INT, 0);
@@ -513,7 +522,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         if (action == GLFW_PRESS) {
             g_isDragging = true;
-            glfwGetCursorPos(window, &g_lastMouseX, &g_lastMouseY);
+               glfwGetCursorPos(window, &g_lastMouseX, &g_lastMouseY);
         } else if (action == GLFW_RELEASE) {
             g_isDragging = false;
         }
