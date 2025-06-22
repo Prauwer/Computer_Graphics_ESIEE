@@ -246,12 +246,31 @@ bool Initialise()
 
     // —– Création du VAO/VBO skybox (cube unit)
     float skyboxVerts[] = {
-        // 36 sommets (6 faces × 2 triangles × 3 coords)
-        -1,  1, -1,  -1, -1, -1,   1, -1, -1,
-         1, -1, -1,   1,  1, -1,  -1,  1, -1,
-        // … répétez pour les 5 autres faces : +Z, -X, +X, +Y, -Y (cf. LearnOpenGL)
-        // vous trouverez la liste complète dans le TP PDF ou sur LearnOpenGL
+    // face -Z
+    -1,  1, -1,   -1, -1, -1,    1, -1, -1,
+     1, -1, -1,    1,  1, -1,   -1,  1, -1,
+
+    // face +Z
+    -1, -1,  1,   -1,  1,  1,    1,  1,  1,
+     1,  1,  1,    1, -1,  1,   -1, -1,  1,
+
+    // face -X
+    -1, -1, -1,   -1, -1,  1,   -1,  1,  1,
+    -1,  1,  1,   -1,  1, -1,   -1, -1, -1,
+
+    // face +X
+     1, -1,  1,    1, -1, -1,    1,  1, -1,
+     1,  1, -1,    1,  1,  1,    1, -1,  1,
+
+    // face +Y
+    -1,  1,  1,    1,  1,  1,    1,  1, -1,
+     1,  1, -1,   -1,  1, -1,   -1,  1,  1,
+
+    // face -Y
+    -1, -1, -1,    1, -1, -1,    1, -1,  1,
+     1, -1,  1,   -1, -1,  1,   -1, -1, -1
     };
+
     glGenVertexArrays(1, &skyboxVAO);
     glGenBuffers(1, &skyboxVBO);
     glBindVertexArray(skyboxVAO);
@@ -341,6 +360,8 @@ void Render()
     // – Désactive l’écriture dans le depth buffer
     glDepthMask(GL_FALSE);
 
+    glDisable(GL_CULL_FACE);
+
     glUseProgram(g_SkyboxShader.GetProgram());
 
     // view sans translation : on prend juste la rotation de viewMatrix
@@ -364,6 +385,7 @@ void Render()
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);
 
+    glEnable(GL_CULL_FACE);
     // – Réactive le depth write
     glDepthMask(GL_TRUE);
 
