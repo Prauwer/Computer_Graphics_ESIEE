@@ -39,3 +39,6 @@ ESIEE_Computer_Graphics
 # User added
 projet
 *.pdf
+
+# imgui
+imgui.ini
