@@ -30,6 +30,7 @@ GLShader g_BasicShader;
 GLShader g_TextureShader;
 GLShader  g_EnvShader;
 GLShader g_SkyboxShader;
+GLShader g_PhongShader;
 GLFWwindow* g_window;
 
 GLuint g_mainTex = 0; // Global texture object
@@ -243,6 +244,11 @@ bool Initialise()
     g_SkyboxShader.LoadVertexShader  ("shaders/skybox.vs");
     g_SkyboxShader.LoadFragmentShader("shaders/skybox.fs");
     g_SkyboxShader.Create();
+    
+    // --- 5ᵉ shader : Phong
+    g_PhongShader.LoadVertexShader("shaders/phong.vs");
+    g_PhongShader.LoadFragmentShader("shaders/phong.fs");
+    g_PhongShader.Create();
 
     // —– Création du VAO/VBO skybox (cube unit)
     float skyboxVerts[] = {
@@ -400,16 +406,14 @@ void Render()
 
 
     // ────────────────────────────────────────────────────────────────
-    // 2) DESSIN DU CUBE
+    // 2) DESSIN DU CUBE (AVEC ÉCLAIRAGE PHONG)
     // ────────────────────────────────────────────────────────────────
 
-    // Étape c1. Sélection et utilisation du shader basique pour le cube
-    auto basicProgram = g_BasicShader.GetProgram();
-    glUseProgram(basicProgram); 
+    // Étape c1. Sélection et utilisation du shader Phong pour le cube
+    auto phongProgram = g_PhongShader.GetProgram();
+    glUseProgram(phongProgram); 
 
     // Étape d1. Configuration des matrices MVP (identique à votre code)
-
-    // Matrice Modèle (transformations de l'objet)
     float rotationXAngle = 20.0f * 3.1415926535f / 180.0f; // 20 degrés en radians
 
     mat4 modelCube = 
@@ -417,17 +421,17 @@ void Render()
   * mat4::rotateX(rotationXAngle)
   * mat4::scale(1.0f, 1.0f, 1.0f);       // échelle réduite pour un cube de taille raisonnable
 
-    // Récupérer les localisations des uniformes
-    GLint modelLoc = glGetUniformLocation(basicProgram, "u_model");
-    GLint viewLoc = glGetUniformLocation(basicProgram, "u_view");
-    GLint projectionLoc = glGetUniformLocation(basicProgram, "u_projection");
-    GLint colorLoc = glGetUniformLocation(basicProgram, "u_color");
-
     // Envoyer les matrices au shader
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, modelCube.getPtr());
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, viewMatrix.getPtr());
-    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, projectionMatrix.getPtr());
-    glUniform3f(colorLoc, 0.0f, 0.0f, 1.0f);   // cube bleu
+    glUniformMatrix4fv(glGetUniformLocation(phongProgram, "u_model"), 1, GL_FALSE, modelCube.getPtr());
+    glUniformMatrix4fv(glGetUniformLocation(phongProgram, "u_view"), 1, GL_FALSE, viewMatrix.getPtr());
+    glUniformMatrix4fv(glGetUniformLocation(phongProgram, "u_projection"), 1, GL_FALSE, projectionMatrix.getPtr());
+    
+    // Envoyer les uniforms pour l'éclairage
+    glUniform3f(glGetUniformLocation(phongProgram, "u_objectColor"), 0.0f, 0.0f, 1.0f); // Cube bleu
+    glUniform3f(glGetUniformLocation(phongProgram, "u_lightColor"), 1.0f, 1.0f, 1.0f);  // Lumière blanche
+    glUniform3f(glGetUniformLocation(phongProgram, "u_lightPos"), 0.0f, 5.0f, 2.0f);   // Position de la lumière
+    glUniform3f(glGetUniformLocation(phongProgram, "u_viewPos"), camX, camY, camZ);     // Position de la caméra
+    glUniform1f(glGetUniformLocation(phongProgram, "u_shininess"), 32.0f);              // Brillance
     
     // Étape e1. Activation du VAO du cube
     glBindVertexArray(g_mainModel.vao);
@@ -571,6 +575,9 @@ void Terminate()
     glDeleteVertexArrays(1, &g_envModel.vao);
     glDeleteTextures(1, &envCubemap);
     g_EnvShader.Destroy();
+    
+    // --- Phong Shader
+    g_PhongShader.Destroy();
 }
 
 
